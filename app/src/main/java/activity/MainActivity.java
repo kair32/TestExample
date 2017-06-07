@@ -202,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
         client.addHeader("Content-Type", "application/x-www-form-urlencoded");
         JSONObject jsonParams = new JSONObject();
         try {
-            jsonParams.put("grant_type", "123456");//bin2hex(getHash("123456")) + salt);
+            jsonParams.put("grant_type", "password");//bin2hex(getHash("123456")) + salt);
             jsonParams.put("username", "test");
             jsonParams.put("password", bin2hex(getHash("123456")) + salt);
         } catch (JSONException e) {
