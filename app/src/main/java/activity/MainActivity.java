@@ -55,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int CAMERA_REQUEST_ONE = 1888;
     private static final int CAMERA_REQUEST_TWO = 1889;
     private static final int RQS_VIDEO1 = 183;
+    private static final int RQS_VIDEO2 = 184;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -87,13 +88,20 @@ public class MainActivity extends AppCompatActivity {
             //startActivity(new Intent(getBaseContext(), LoginActivity.class));
         vVideoViewOne = (VideoView)findViewById(R.id.videoView_one);
         vVideoViewTwo = (VideoView)findViewById(R.id.videoView_two);
-
         Button buttonOpenStorageOne = (Button)findViewById(R.id.button_from_storage);
+        Button buttonOpenStorageTwo = (Button)findViewById(R.id.button_from_storage_2);
         buttonOpenStorageOne.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(Intent.ACTION_PICK,MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
                 startActivityForResult(intent, RQS_VIDEO1);
+            }
+        });
+        buttonOpenStorageTwo.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Intent.ACTION_PICK,MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
+                startActivityForResult(intent, RQS_VIDEO2);
             }
         });
         Button buttonOpenCameraOne = (Button)findViewById(R.id.button_open_camera);
@@ -123,24 +131,21 @@ public class MainActivity extends AppCompatActivity {
         if (resultCode == RESULT_OK) switch (requestCode) {
 
             case CAMERA_REQUEST_ONE:
-                //vVideoViewOne.setVideoPath(data.getDataString());
-                Log.d("TAP", " good one");
+                vVideoViewOne.setVideoPath(data.getDataString());
                 break;
             case CAMERA_REQUEST_TWO:
                 videoFromCamera(resultCode, data);
-                Log.d("TAP", " good two");
                 break;
             case RQS_VIDEO1:
-                Log.d("TAP", " good two" + data.getData());
                 vVideoViewOne.setVideoPath(String.valueOf(data.getData()));
+                break;
+            case RQS_VIDEO2:
+                vVideoViewTwo.setVideoPath(String.valueOf(data.getData()));
                 break;
         }
     }
     private void videoFromCamera(int resultCode, Intent data) {
         Uri uriVideo = data.getData();
-        String uploadedFileName="";
-        //Constant.IS_FILE_ATTACH = true;
-
         Toast.makeText(MainActivity.this, uriVideo.getPath(), Toast.LENGTH_LONG)
                 .show();
         String[] filePathColumn = { MediaStore.Video.Media.DATA };
@@ -151,32 +156,10 @@ public class MainActivity extends AppCompatActivity {
 
         int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
         String filePath = cursor.getString(columnIndex);
-        //Videofilepath = filePath;
-        //System.out.println("Videofilepath filepath from camera : " + Videofilepath);
         cursor.close();
         File f = new File(filePath);
         vVideoViewTwo.setVideoPath(filePath);
-        /*Bitmap bMap = null;
-        do {
-            try {
-                // Simulate network access.
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        } while (!f.exists());
-        bMap = ThumbnailUtils.createVideoThumbnail(filePath,
-                MediaStore.Video.Thumbnails.MICRO_KIND);
-        do {
-            try {
-                // Simulate network access.
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        } while (bMap == null);*/
-        //imageOrVideo = "video";
-        //attachmentvalue.setImageBitmap(bMap);
+
     }
     public void zaprosone(){
         AsyncHttpClient client = new AsyncHttpClient();
@@ -219,9 +202,9 @@ public class MainActivity extends AppCompatActivity {
         client.addHeader("Content-Type", "application/x-www-form-urlencoded");
         JSONObject jsonParams = new JSONObject();
         try {
-            jsonParams.put("grant_type", bin2hex(getHash("123456" + salt)));
+            jsonParams.put("grant_type", "123456");//bin2hex(getHash("123456")) + salt);
             jsonParams.put("username", "test");
-            jsonParams.put("password", bin2hex(getHash("123456" + salt)));
+            jsonParams.put("password", bin2hex(getHash("123456")) + salt);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -250,7 +233,6 @@ public class MainActivity extends AppCompatActivity {
         try {
             digest = MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e1) {
-            // TODO Auto-generated catch block
             e1.printStackTrace();
         }
         digest.reset();
