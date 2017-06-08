@@ -2,6 +2,11 @@ package activity;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.app.DialogFragment;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -25,6 +30,9 @@ import android.widget.Toast;
 import android.widget.VideoView;
 
 import com.example.kirill.testexample.R;
+import com.github.hiteshsondhi88.libffmpeg.FFmpeg;
+import com.github.hiteshsondhi88.libffmpeg.LoadBinaryResponseHandler;
+import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegNotSupportedException;
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.AsyncHttpResponseHandler;
 import com.loopj.android.http.JsonHttpResponseHandler;
@@ -50,12 +58,11 @@ import support.Constants;
 public class MainActivity extends AppCompatActivity {
 
     private String mUserName, mPassword, mToken;
+    private MediaController mediaControllerOne, mediaControllerTwo;
     public String salt = "";
     private VideoView vVideoViewOne, vVideoViewTwo;
-    private static final int CAMERA_REQUEST_ONE = 1888;
-    private static final int CAMERA_REQUEST_TWO = 1889;
-    private static final int RQS_VIDEO1 = 183;
-    private static final int RQS_VIDEO2 = 184;
+    private static final int REQUEST_ONE = 1888;
+    private static final int REQUEST_TWO = 1889;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -88,36 +95,40 @@ public class MainActivity extends AppCompatActivity {
             //startActivity(new Intent(getBaseContext(), LoginActivity.class));
         vVideoViewOne = (VideoView)findViewById(R.id.videoView_one);
         vVideoViewTwo = (VideoView)findViewById(R.id.videoView_two);
+        mediaControllerOne = (MediaController)findViewById(R.id.mediaControllerOne);
+        mediaControllerTwo = (MediaController)findViewById(R.id.mediaControllerTwo);
+
         Button buttonOpenStorageOne = (Button)findViewById(R.id.button_from_storage);
         Button buttonOpenStorageTwo = (Button)findViewById(R.id.button_from_storage_2);
+        Button buttonOpenCameraOne = (Button)findViewById(R.id.button_open_camera);
+        Button buttonOpenCameraTwo = (Button)findViewById(R.id.button_open_camera_2);
+
         buttonOpenStorageOne.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(Intent.ACTION_PICK,MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
-                startActivityForResult(intent, RQS_VIDEO1);
+                startActivityForResult(intent, REQUEST_ONE);
             }
         });
         buttonOpenStorageTwo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(Intent.ACTION_PICK,MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
-                startActivityForResult(intent, RQS_VIDEO2);
+                startActivityForResult(intent, REQUEST_TWO);
             }
         });
-        Button buttonOpenCameraOne = (Button)findViewById(R.id.button_open_camera);
         buttonOpenCameraOne.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent cameraIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
-                startActivityForResult(cameraIntent, CAMERA_REQUEST_ONE);
+                startActivityForResult(cameraIntent, REQUEST_ONE);
             }
         });
-        Button buttonOpenCameraTwo = (Button)findViewById(R.id.button_open_camera_2);
         buttonOpenCameraTwo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent cameraIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
-                startActivityForResult(cameraIntent, CAMERA_REQUEST_TWO);
+                startActivityForResult(cameraIntent, REQUEST_TWO);
             }
         });
 
@@ -130,36 +141,21 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode == RESULT_OK) switch (requestCode) {
 
-            case CAMERA_REQUEST_ONE:
-                vVideoViewOne.setVideoPath(data.getDataString());
-                break;
-            case CAMERA_REQUEST_TWO:
-                videoFromCamera(resultCode, data);
-                break;
-            case RQS_VIDEO1:
+            case REQUEST_ONE:
+                mediaControllerOne = new MediaController(this);
+                vVideoViewOne.setMediaController(mediaControllerOne);
                 vVideoViewOne.setVideoPath(String.valueOf(data.getData()));
+                vVideoViewOne.requestFocus();
+                vVideoViewOne.start();
                 break;
-            case RQS_VIDEO2:
+            case REQUEST_TWO:
+                mediaControllerTwo = new MediaController(this);
+                vVideoViewTwo.setMediaController(mediaControllerTwo);
                 vVideoViewTwo.setVideoPath(String.valueOf(data.getData()));
+                vVideoViewTwo.requestFocus();
+                vVideoViewTwo.start();
                 break;
         }
-    }
-    private void videoFromCamera(int resultCode, Intent data) {
-        Uri uriVideo = data.getData();
-        Toast.makeText(MainActivity.this, uriVideo.getPath(), Toast.LENGTH_LONG)
-                .show();
-        String[] filePathColumn = { MediaStore.Video.Media.DATA };
-
-        Cursor cursor = getContentResolver().query(uriVideo, filePathColumn,
-                null, null, null);
-        cursor.moveToFirst();
-
-        int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-        String filePath = cursor.getString(columnIndex);
-        cursor.close();
-        File f = new File(filePath);
-        vVideoViewTwo.setVideoPath(filePath);
-
     }
     public void zaprosone(){
         AsyncHttpClient client = new AsyncHttpClient();
