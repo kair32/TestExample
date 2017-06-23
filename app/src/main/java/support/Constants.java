@@ -6,4 +6,5 @@ package support;
 
 public class Constants {
     public static final String SETTING_NAME = "Test_Setting";
+    public static final int mUpdateFrequency = 20;
 }

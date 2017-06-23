@@ -29,6 +29,8 @@ dependencies {
 
     compile 'com.squareup.okhttp3:okhttp:3.8.0'
     compile 'com.writingminds:FFmpegAndroid:0.3.2'
+    compile 'net.danlew:android.joda:2.9.9'
+
 
 
     compile 'com.loopj.android:android-async-http:1.4.9'

@@ -15,6 +15,8 @@ import android.graphics.Bitmap;
 import android.media.MediaPlayer;
 import android.media.ThumbnailUtils;
 import android.net.Uri;
+import android.os.Environment;
+import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.support.constraint.ConstraintLayout;
 import android.support.v4.app.ActivityCompat;
@@ -29,6 +31,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.MediaController;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 import android.widget.VideoView;
 
@@ -46,6 +49,13 @@ import com.loopj.android.http.JsonHttpResponseHandler;
 import com.squareup.picasso.Picasso;
 import com.squareup.picasso.Target;
 
+import net.danlew.android.joda.DateUtils;
+
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeFieldType;
+import org.joda.time.Instant;
+import org.joda.time.LocalDate;
+import org.joda.time.LocalDateTime;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.videolan.libvlc.LibVLC;
@@ -63,8 +73,17 @@ import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Time;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Map;
+import java.util.Scanner;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.regex.Pattern;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -75,6 +94,7 @@ import cz.msebera.android.httpclient.entity.StringEntity;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.FormBody;
+import okhttp3.Headers;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
@@ -85,9 +105,12 @@ import support.Constants;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener{
 
-    private String mUserName, mPassword, mToken, v1,v2, videoOutput;
+    private String mToken, v1,v2, videoOutput= null;
+    private final OkHttpClient client = new OkHttpClient();
+    private ProgressBar progressBar;
     private MediaController mediaControllerOne, mediaControllerTwo;
-    public String salt = "";
+    private Timer mTimer;
+    private MyTimerTask mMyTimerTask;
     private VideoView vVideoViewOne, vVideoViewTwo;
     private static final int REQUEST_ONE = 1888;
     private static final int REQUEST_TWO = 1889;
@@ -97,11 +120,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             Manifest.permission.WRITE_EXTERNAL_STORAGE
     };
     public static void verifyStoragePermissions(Activity activity) {
-        // Check if we have write permission
         int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-
         if (permission != PackageManager.PERMISSION_GRANTED) {
-            // We don't have permission so prompt the user
             ActivityCompat.requestPermissions(
                     activity,
                     PERMISSIONS_STORAGE,
@@ -116,16 +136,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         setContentView(R.layout.activity_main);
         verifyStoragePermissions(this);
         ffmpeg();
-        SharedPreferences mSharedPreferences = getSharedPreferences(Constants.SETTING_NAME, MODE_PRIVATE);
-        mUserName =mSharedPreferences.getString("Username","");
-        mPassword = mSharedPreferences.getString("Password","");
-        mToken = mSharedPreferences.getString("Token","");
-        if(mUserName.equals("") && mPassword.equals("") && mToken.equals(""));
-            //startActivity(new Intent(getBaseContext(), LoginActivity.class));
+
+        SharedPreferences mSettings = getSharedPreferences(Constants.SETTING_NAME, Context.MODE_PRIVATE);
+        LocalDateTime dLastVisit = LocalDateTime.parse(mSettings.getString("Data_Last_Connect", String.valueOf(LocalDateTime.now().minusDays(1))));
+        mToken = mSettings.getString("Token","");
+        if (LocalDateTime.now().minusMinutes(Constants.mUpdateFrequency).compareTo(dLastVisit)>=0) {
+            startActivity(new Intent(getBaseContext(), LoginActivity.class));
+        }else {
+            int dStartingTimer = LocalDateTime.now().getMinuteOfHour();
+            dStartingTimer -= dLastVisit.getMinuteOfHour() - Constants.mUpdateFrequency;
+            if (mTimer != null) {
+                mTimer.cancel();
+            }
+            mTimer = new Timer();
+            mMyTimerTask = new MyTimerTask();
+            mTimer.schedule(mMyTimerTask, dStartingTimer * 60000, dStartingTimer * 60000);
+        }
+
         vVideoViewOne = (VideoView)findViewById(R.id.videoView_one);
         vVideoViewTwo = (VideoView)findViewById(R.id.videoView_two);
         mediaControllerOne = (MediaController)findViewById(R.id.mediaControllerOne);
         mediaControllerTwo = (MediaController)findViewById(R.id.mediaControllerTwo);
+        progressBar = (ProgressBar)findViewById(R.id.progressBar);
 
         Button buttonOpenStorageOne = (Button)findViewById(R.id.button_from_storage);
         Button buttonOpenStorageTwo = (Button)findViewById(R.id.button_from_storage_2);
@@ -140,7 +172,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         buttonOpenCameraOne.setOnClickListener(this);
         buttonOpenCameraTwo.setOnClickListener(this);
         buttonAssotiation.setOnClickListener(this);
-        zaprosone();
+        buttonSee.setOnClickListener(this);
+        buttonSend.setOnClickListener(this);
+        String s = getApplicationInfo().dataDir + "/" + String.valueOf(System.currentTimeMillis()) + ".mp4";
     }
     @Override
     public void onClick(View v) {
@@ -169,11 +203,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 break;
             case R.id.button_see:
-                Intent intents = new Intent(Intent.ACTION_VIEW );
-                intents.setDataAndType(Uri.parse(String.valueOf(videoOutput)), "video/*");
-                startActivity(intents);
+                if(videoOutput==null){Toast.makeText(MainActivity.this,"Для просмотра файла, его нужно создать",Toast.LENGTH_LONG).show();}
+                else {
+                    Intent intents = new Intent(Intent.ACTION_VIEW);
+                    intents.setDataAndType(Uri.parse(String.valueOf(videoOutput)), "video/*");
+                    startActivity(intents);
+                }
                 break;
             case R.id.button_send:
+                if(videoOutput==null){Toast.makeText(MainActivity.this,"Чтобы поделиться, нужно создать видео!",Toast.LENGTH_LONG).show();}
+                else {
+                    DownloadVideoServer();
+                }
                 break;
         }
     }
@@ -229,82 +270,66 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
         }
     }
-    public void zaprosone(){
-        AsyncHttpClient client = new AsyncHttpClient();
-        client.addHeader("Content-Type", "application/json");
-        JSONObject jsonParams = new JSONObject();
-        try {
-            jsonParams.put("login", "test");
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        StringEntity entity = null;
-        try {
-            entity = new StringEntity(jsonParams.toString());
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-        client.post(this, "https://api.smiber.com/v4.005/salt",entity,null, new JsonHttpResponseHandler(){
-            @Override
-            public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
-                super.onSuccess(statusCode, headers, response);
-                Log.d("TAP Sucsess ONE", " " + response);
-                try {
-                    JSONObject jsonObjectData = response.getJSONObject("data");
-                    salt = jsonObjectData.getString("salt");
-                    try {
-                        zaprostwo();
-                    } catch (Exception e) {
-                        e.printStackTrace();
+
+    public void DownloadVideoServer(){
+        //File file = new File("/storage/emulated/0/TestExample/vid_1497886875541.mp4");
+            RequestBody  formBody = new MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("file", "test_video10914994612345.mp4",
+                            RequestBody.create(MediaType.parse("video/mp4"), new File("/storage/emulated/0/TestExample/vid_1497886875541.mp4")))
+                    .addFormDataPart("type_file", "VIDEO")
+                    .build();
+            Request request = new Request.Builder()
+                    .header("Content-Type", "multipart/form-data")
+                    .header("Authorization","Bearer {" + mToken + "}")
+                    .url("https://api.smiber.com/v4.005/file/upload")
+                    .post(formBody)
+                    .build();
+
+            client.newCall(request).enqueue(new Callback() {
+                @Override public void onFailure(Call call, IOException e) {
+                    Log.d("TAP", "ERROR " + e);
+                    e.printStackTrace();}
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    String res = response.body().string();
+                    Log.d("TAP"," " + res);
+                    try{
+                        JSONObject jsonObject = new JSONObject(res);
+                        String data = jsonObject.getString("data");
+                        String id  = jsonObject.getString("id");
+                        AddContentServer(data, id);
                     }
-                } catch (JSONException e) {
-                    e.printStackTrace();
+                    catch (JSONException e){}
                 }
-            }
-
-            @Override
-            public void onFailure(int statusCode, Header[] headers, Throwable throwable, JSONObject errorResponse) {
-                super.onFailure(statusCode, headers, throwable, errorResponse);
-            }
-        });
+            });
     }
-    private final OkHttpClient client = new OkHttpClient();
-
-    public void zaprostwo() throws Exception {
-        RequestBody  formBody = new FormBody.Builder()
-                .add("grant_type", "password")
-                .add("username", "test")
-                .add("password", convert(convert("123456") + salt))
+    public void AddContentServer(String data, String id){
+        RequestBody  formBody = new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("nameContent", "test_video10914994612345.mp4")
+                .addFormDataPart("typeContent", "VIDEO")
+                .addFormDataPart("params ", data)
+                .addFormDataPart("video ", id)
                 .build();
         Request request = new Request.Builder()
-                .url("https://api.smiber.com/v4.005/oauth/token")
-                .addHeader("Content-Type", "application/x-www-form-urlencoded")
+                .header("Content-Type", "application/json")
+                .header("Authorization","Bearer {" + mToken + "}")
+                .url("https://api.smiber.com/v4.005/content/add")
                 .post(formBody)
                 .build();
+
         client.newCall(request).enqueue(new Callback() {
-            @Override public void onFailure(Call call, IOException e) {e.printStackTrace();}
+            @Override public void onFailure(Call call, IOException e) {
+                Log.d("TAP", "ERROR " + e);
+                e.printStackTrace();}
             @Override
             public void onResponse(Call call, Response response) throws IOException {
-                Log.d("TAP", "TWO " + response.body().string());
+                String res = response.body().string();
             }
         });
     }
-    public String convert(String password)throws Exception {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            md.update(password.getBytes());
-            byte byteData[] = md.digest();
-            StringBuffer sb = new StringBuffer();
-            for (int i = 0; i < byteData.length; i++) {
-                sb.append(Integer.toString((byteData[i] & 0xff) + 0x100, 16).substring(1));
-            }
-            StringBuffer hexString = new StringBuffer();
-            for (int i=0;i<byteData.length;i++) {
-                String hex=Integer.toHexString(0xff & byteData[i]);
-                if(hex.length()==1) hexString.append('0');
-                hexString.append(hex);
-            }
-            return  hexString.toString();
-        }
+
     public void ffmpeg(){
         final FFmpeg ffmpeg = FFmpeg.getInstance(this);
         try {
@@ -320,14 +345,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public  void ffmpegOne() {
         FFmpeg fFmpeg = FFmpeg.getInstance(this);
         try {
-            String s = getFileNameByUri(this, Uri.parse(v1));
-            fFmpeg.execute(new String[]{"-i", s, "-qscale:v", "1", getApplicationInfo().dataDir + "/0.mpg"}, new FFmpegExecuteResponseHandler() {
+            String ss = getFileNameByUri(this, Uri.parse(v1));
+            fFmpeg.execute(new String[]{"-i", ss, "-qscale:v", "1", getApplicationInfo().dataDir + "/0.mpg"}, new FFmpegExecuteResponseHandler() {
                 @Override public void onSuccess(String message) {}
-                @Override public void onProgress(String message) {}
+                @Override public void onProgress(String message) {
+                }
                 @Override public void onFailure(String message) {
                     Log.d("FFMPEG","onFailure " + message);
                 }
-                @Override public void onStart() {Log.d("FFMPEG","onStart ");}
+                @Override public void onStart() {progressBar.setVisibility(View.VISIBLE);}
                 @Override public void onFinish() {
                     Log.d("FFMPEG","onFinish ");
                     ffmpegTwo();
@@ -379,8 +405,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public  void ffmpegFour() {
         FFmpeg fFmpeg = FFmpeg.getInstance(this);
         try {
-            videoOutput = getApplicationInfo().dataDir + String.valueOf(System.currentTimeMillis()) + ".mp4";
-            fFmpeg.execute(new String[]{"-i", getApplicationInfo().dataDir + "/2.mpg", "-qscale:v", "2", videoOutput}, new FFmpegExecuteResponseHandler() {
+            File root = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/TestExample/");
+            root.mkdirs();
+            File file = new File(root, "vid_" + String.valueOf(System.currentTimeMillis()) + ".mp4");
+            videoOutput = file.getPath();
+            fFmpeg.execute(new String[]{"-i", getApplicationInfo().dataDir + "/2.mpg", "-qscale:v", "2", file.getPath()}, new FFmpegExecuteResponseHandler() {
                 @Override public void onSuccess(String message) {}
                 @Override public void onProgress(String message) {}
                 @Override public void onFailure(String message) {
@@ -388,6 +417,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 @Override public void onStart() {Log.d("FFMPEG4","onStart ");}
                 @Override public void onFinish() {
+                    progressBar.setVisibility(View.INVISIBLE);
+                    Toast.makeText(MainActivity.this,"Выполнено!",Toast.LENGTH_LONG);
                     dellFile();
                     Log.d("FFMPEG4","onFinish ");
                 }
@@ -404,6 +435,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         f = new File(getApplicationInfo().dataDir + "/2.mpg");
         f.delete();
     }
+
     public static String getFileNameByUri(Context context, Uri uri) {
         String fileName="unknown";
         Uri filePathUri = uri;
@@ -428,4 +460,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         return fileName;
     }
 
+    private class MyTimerTask extends TimerTask {
+        @Override
+        public void run() {
+            startActivity(new Intent(getBaseContext(), LoginActivity.class));
+        }
+    }
 }
