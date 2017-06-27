@@ -22,12 +22,8 @@ import android.support.constraint.ConstraintLayout;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.telecom.RemoteConnection;
-import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.MotionEvent;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.MediaController;
@@ -36,20 +32,11 @@ import android.widget.Toast;
 import android.widget.VideoView;
 
 import com.example.kirill.testexample.R;
-import com.github.hiteshsondhi88.libffmpeg.ExecuteBinaryResponseHandler;
 import com.github.hiteshsondhi88.libffmpeg.FFmpeg;
 import com.github.hiteshsondhi88.libffmpeg.FFmpegExecuteResponseHandler;
 import com.github.hiteshsondhi88.libffmpeg.LoadBinaryResponseHandler;
 import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegCommandAlreadyRunningException;
 import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegNotSupportedException;
-import com.loopj.android.http.AsyncHttpClient;
-import com.loopj.android.http.AsyncHttpResponseHandler;
-import com.loopj.android.http.Base64;
-import com.loopj.android.http.JsonHttpResponseHandler;
-import com.squareup.picasso.Picasso;
-import com.squareup.picasso.Target;
-
-import net.danlew.android.joda.DateUtils;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeFieldType;
@@ -135,16 +122,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         verifyStoragePermissions(this);
-        ffmpeg();
 
-        SharedPreferences mSettings = getSharedPreferences(Constants.SETTING_NAME, Context.MODE_PRIVATE);
+        SharedPreferences mSettings = getSharedPreferences(Constants.SETTING_NAME, Context.MODE_PRIVATE);//фрунзе 66 кабинет 102 книжка и копия страницы
         LocalDateTime dLastVisit = LocalDateTime.parse(mSettings.getString("Data_Last_Connect", String.valueOf(LocalDateTime.now().minusDays(1))));
         mToken = mSettings.getString("Token","");
         if (LocalDateTime.now().minusMinutes(Constants.mUpdateFrequency).compareTo(dLastVisit)>=0) {
             startActivity(new Intent(getBaseContext(), LoginActivity.class));
         }else {
-            int dStartingTimer = LocalDateTime.now().getMinuteOfHour();
-            dStartingTimer -= dLastVisit.getMinuteOfHour() - Constants.mUpdateFrequency;
+            int dStartingTimer =Constants.mUpdateFrequency + dLastVisit.getMinuteOfHour() - LocalDateTime.now().getMinuteOfHour();
+            Log.d("TAP"," " + dStartingTimer);
             if (mTimer != null) {
                 mTimer.cancel();
             }
@@ -152,7 +138,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             mMyTimerTask = new MyTimerTask();
             mTimer.schedule(mMyTimerTask, dStartingTimer * 60000, dStartingTimer * 60000);
         }
-
+        ffmpeg();
         vVideoViewOne = (VideoView)findViewById(R.id.videoView_one);
         vVideoViewTwo = (VideoView)findViewById(R.id.videoView_two);
         mediaControllerOne = (MediaController)findViewById(R.id.mediaControllerOne);
@@ -352,6 +338,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 @Override public void onFailure(String message) {
                     Log.d("FFMPEG","onFailure " + message);
+                    Toast.makeText(MainActivity.this,"Ошибка!",Toast.LENGTH_LONG).show();
                 }
                 @Override public void onStart() {progressBar.setVisibility(View.VISIBLE);}
                 @Override public void onFinish() {
@@ -373,6 +360,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 @Override public void onProgress(String message) {}
                 @Override public void onFailure(String message) {
                     Log.d("FFMPEG2","onFailure " + message);
+                    Toast.makeText(MainActivity.this,"Ошибка!",Toast.LENGTH_LONG).show();
                 }
                 @Override public void onStart() { Log.d("FFMPEG2","onStart ");}
                 @Override public void onFinish() {
@@ -392,6 +380,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 @Override public void onProgress(String message) {}
                 @Override public void onFailure(String message) {
                     Log.d("FFMPEG3","onFailure " + message);
+                    Toast.makeText(MainActivity.this,"Ошибка!",Toast.LENGTH_LONG).show();
                 }
                 @Override public void onStart() {Log.d("FFMPEG3","onStart ");}
                 @Override public void onFinish() {
@@ -409,16 +398,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             root.mkdirs();
             File file = new File(root, "vid_" + String.valueOf(System.currentTimeMillis()) + ".mp4");
             videoOutput = file.getPath();
-            fFmpeg.execute(new String[]{"-i", getApplicationInfo().dataDir + "/2.mpg", "-qscale:v", "2", file.getPath()}, new FFmpegExecuteResponseHandler() {
+            fFmpeg.execute(new String[]{"-i", getApplicationInfo().dataDir + "/2.mpg", "-qscale:v", "1", file.getPath()}, new FFmpegExecuteResponseHandler() {
                 @Override public void onSuccess(String message) {}
                 @Override public void onProgress(String message) {}
                 @Override public void onFailure(String message) {
                     Log.d("FFMPEG4","onFailure " + message);
+                    Toast.makeText(MainActivity.this,"Ошибка!",Toast.LENGTH_LONG).show();
                 }
                 @Override public void onStart() {Log.d("FFMPEG4","onStart ");}
                 @Override public void onFinish() {
                     progressBar.setVisibility(View.INVISIBLE);
-                    Toast.makeText(MainActivity.this,"Выполнено!",Toast.LENGTH_LONG);
+                    Toast.makeText(MainActivity.this,"Выполнено!",Toast.LENGTH_LONG).show();
                     dellFile();
                     Log.d("FFMPEG4","onFinish ");
                 }

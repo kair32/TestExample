@@ -22,6 +22,7 @@
             </intent-filter>
         </activity>
         <activity android:name="activity.LoginActivity"
+            android:label="Авторизация"
             android:screenOrientation="portrait"/>
     </application>
 
