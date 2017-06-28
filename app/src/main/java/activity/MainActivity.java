@@ -258,11 +258,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     public void DownloadVideoServer(){
-        //File file = new File("/storage/emulated/0/TestExample/vid_1497886875541.mp4");
+        File file = new File(videoOutput);
             RequestBody  formBody = new MultipartBody.Builder()
                     .setType(MultipartBody.FORM)
-                    .addFormDataPart("file", "test_video10914994612345.mp4",
-                            RequestBody.create(MediaType.parse("video/mp4"), new File("/storage/emulated/0/TestExample/vid_1497886875541.mp4")))
+                    .addFormDataPart("file", file.getName(),
+                            RequestBody.create(MediaType.parse("video/mp4"), file))
                     .addFormDataPart("type_file", "VIDEO")
                     .build();
             Request request = new Request.Builder()
@@ -333,7 +333,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         try {
             String ss = getFileNameByUri(this, Uri.parse(v1));
             fFmpeg.execute(new String[]{"-i", ss, "-qscale:v", "1", getApplicationInfo().dataDir + "/0.mpg"}, new FFmpegExecuteResponseHandler() {
-                @Override public void onSuccess(String message) {}
+                @Override public void onSuccess(String message) {ffmpegTwo();}
                 @Override public void onProgress(String message) {
                 }
                 @Override public void onFailure(String message) {
@@ -341,10 +341,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     Toast.makeText(MainActivity.this,"Ошибка!",Toast.LENGTH_LONG).show();
                 }
                 @Override public void onStart() {progressBar.setVisibility(View.VISIBLE);}
-                @Override public void onFinish() {
-                    Log.d("FFMPEG","onFinish ");
-                    ffmpegTwo();
-                }
+                @Override public void onFinish() {}
             });
         } catch (FFmpegCommandAlreadyRunningException e) {
             Log.d("FFMPEG", " ERROR" + e.getMessage());
@@ -356,16 +353,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         try {
             String s = getFileNameByUri(this, Uri.parse(v2));
             fFmpeg.execute(new String[]{"-i", s, "-qscale:v", "1", getApplicationInfo().dataDir + "/1.mpg"}, new FFmpegExecuteResponseHandler() {
-                @Override public void onSuccess(String message) {}
+                @Override public void onSuccess(String message) {ffmpegThree();}
                 @Override public void onProgress(String message) {}
                 @Override public void onFailure(String message) {
                     Log.d("FFMPEG2","onFailure " + message);
                     Toast.makeText(MainActivity.this,"Ошибка!",Toast.LENGTH_LONG).show();
                 }
                 @Override public void onStart() { Log.d("FFMPEG2","onStart ");}
-                @Override public void onFinish() {
-                    Log.d("FFMPEG2","onFinish ");ffmpegThree();
-                }
+                @Override public void onFinish() {}
             });
         } catch (FFmpegCommandAlreadyRunningException e) {
             e.printStackTrace();
@@ -376,16 +371,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         try {
             fFmpeg.execute(new String[]{"-i", "concat:" + getApplicationInfo().dataDir + "/0.mpg|" + getApplicationInfo().dataDir + "/1.mpg", "-c", "copy", getApplicationInfo().dataDir + "/2.mpg"}, new FFmpegExecuteResponseHandler() {
                 //3 fFmpeg.execute(new String[]{"-i", "/storage/emulated/0/all.mpg", "-qscale:v", "2", "/storage/emulated/0/output.mp4"}, new FFmpegExecuteResponseHandler() {
-                @Override public void onSuccess(String message) {}
+                @Override public void onSuccess(String message) {ffmpegFour();}
                 @Override public void onProgress(String message) {}
                 @Override public void onFailure(String message) {
                     Log.d("FFMPEG3","onFailure " + message);
                     Toast.makeText(MainActivity.this,"Ошибка!",Toast.LENGTH_LONG).show();
                 }
                 @Override public void onStart() {Log.d("FFMPEG3","onStart ");}
-                @Override public void onFinish() {
-                    Log.d("FFMPEG3","onFinish ");ffmpegFour();
-                }
+                @Override public void onFinish() {}
             });
         } catch (FFmpegCommandAlreadyRunningException e) {
             e.printStackTrace();
@@ -399,19 +392,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             File file = new File(root, "vid_" + String.valueOf(System.currentTimeMillis()) + ".mp4");
             videoOutput = file.getPath();
             fFmpeg.execute(new String[]{"-i", getApplicationInfo().dataDir + "/2.mpg", "-qscale:v", "1", file.getPath()}, new FFmpegExecuteResponseHandler() {
-                @Override public void onSuccess(String message) {}
+                @Override public void onSuccess(String message) {
+                    progressBar.setVisibility(View.INVISIBLE);
+                    Toast.makeText(MainActivity.this,"Выполнено!",Toast.LENGTH_LONG).show();
+                    dellFile();
+                    Log.d("FFMPEG4","onSuccess ");
+
+                }
                 @Override public void onProgress(String message) {}
                 @Override public void onFailure(String message) {
                     Log.d("FFMPEG4","onFailure " + message);
                     Toast.makeText(MainActivity.this,"Ошибка!",Toast.LENGTH_LONG).show();
                 }
                 @Override public void onStart() {Log.d("FFMPEG4","onStart ");}
-                @Override public void onFinish() {
-                    progressBar.setVisibility(View.INVISIBLE);
-                    Toast.makeText(MainActivity.this,"Выполнено!",Toast.LENGTH_LONG).show();
-                    dellFile();
-                    Log.d("FFMPEG4","onFinish ");
-                }
+                @Override public void onFinish() {              }
             });
         } catch (FFmpegCommandAlreadyRunningException e) {
             e.printStackTrace();
